@@ -1,0 +1,55 @@
+import useModalA11y from "../../../hooks/useModalA11y";
+import PopupHeader from "../../common/PopupHeader";
+
+function ConfirmModal({ total, onCancel, onConfirm, loading }) {
+  useModalA11y(onCancel);
+  return (
+    <div
+      onClick={onCancel}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="rate-item-title"
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+    >
+      <div 
+        className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl animate-in fade-in zoom-in duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <PopupHeader 
+          heading="Confirm Purchase"
+          subheading="Are you sure you want to log these items to your purchase history? This cannot be undone."
+          icon="receipt"
+          color="green"
+        />
+
+        <div className="bg-gray-50 border-gray-100 rounded-2xl p-4 mb-6 text-center border ">
+          <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Total Amount</p>
+          <p className="text-3xl font-extrabold text-gray-800">₹{total}</p>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-200 transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+                <>
+                <i className="fa-solid fa-circle-notch fa-spin"></i> Processing
+                </>
+            ) : "Confirm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default ConfirmModal;

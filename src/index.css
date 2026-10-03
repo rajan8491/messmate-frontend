@@ -1,0 +1,46 @@
+@import "tailwindcss";
+* {
+  font-family: "Google Sans", "Roboto", sans-serif;
+}
+
+button{
+    cursor: pointer;
+}
+
+/* ---------------------for scroll control------------------------- */
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+/* --------------------For printing full menu-----------------------  */
+
+@page {
+  size: A4 portrait;
+  margin: 10mm 12mm;
+}
+
+@media print {
+  /* Force exact color rendering for print graphics & table shading */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset document background */
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Fallback hide for layout elements */
+  nav, footer, button {
+    display: none !important;
+  }
+}
