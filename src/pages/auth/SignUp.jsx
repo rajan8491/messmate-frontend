@@ -59,7 +59,6 @@ export default function Signup() {
       setErrors(errors);
       return;
     }
-    console.log("Validated Data:", data); // Debugging line
 
     try {
       await signup({

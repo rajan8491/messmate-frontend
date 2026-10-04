@@ -52,12 +52,9 @@ export default function HostelDetails() {
   //----------
   const handleToggleEdit = async () => {
     setIsSaving(true);
-    console.log("Toggling edit. Current state:", isEditing);
 
     if (isEditing) {
-      console.log("Validating hostel data before saving:", hostelData);
       const { success, errors, data } = validateWithZod(updateHostelSchema, hostelData);
-      console.log("Validation result:", { success, errors, data });
       if (!success) {
         setErrors(errors);
         setIsSaving(false);
@@ -65,7 +62,6 @@ export default function HostelDetails() {
       }
       
       try {
-        console.log("Updating hostel details with data:", data);
         await updateHostelDetails(hostelId, data);
         toast.success("Details updated successfully");
         setIsEditing(false);
@@ -75,7 +71,6 @@ export default function HostelDetails() {
         setIsSaving(false);
       }
     } else {
-      console.log("Entering edit mode");
       setIsEditing(true);
       setIsSaving(false);
     }

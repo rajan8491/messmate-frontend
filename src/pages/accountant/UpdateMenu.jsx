@@ -231,7 +231,6 @@ export default function UpdateMenu() {
   /* ---------- Validation and Save ---------- */
   const handleInitiateUpload = () => {
     const cleanMenu = JSON.parse(JSON.stringify(menu));
-    console.log("Cleaned Menu for Upload:", cleanMenu); // Debugging line
     for (const day of DAYS) {
       for (const meal of MEALS) {
         const mData = cleanMenu[day][meal];

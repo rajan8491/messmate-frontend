@@ -173,7 +173,6 @@ const AccountantContextProvider = ({ children }) => {
           }
         ]
       }
-      console.log("Update Menu Request:", updateMenuRequest); // Debugging line
       await updateTodayMenuAPI(updateMenuRequest);
 
       setTodayMenu(null);
@@ -228,7 +227,6 @@ const AccountantContextProvider = ({ children }) => {
           })) 
         };
       });
-      console.log("Converted Data for Upload:", convertedData); // Debugging line
       
       await uploadWeeklyMenuAPI(convertedData);
 

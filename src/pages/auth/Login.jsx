@@ -100,8 +100,6 @@ export default function Login() {
             otp: data.otp
         });
       }
-      console.log("Login successful:", res); // Debugging line
-      
       navigate(`/${res.role}/home`, { replace: true });
       toast.success("Login successful");
 

@@ -15,7 +15,10 @@ export default function StudentLayout() {
   }, [studentProfile, fetchStudentProfile]);
 
   if(loadingProfile) {
-    return <Loader text="Loading Student Profile..." loaderNumber={1} />;
+    return <div 
+    className="h-screen flex items-center justify-center">
+      <Loader text="Loading interface..." />
+      </div>
   }
 
   if(!studentProfile) {

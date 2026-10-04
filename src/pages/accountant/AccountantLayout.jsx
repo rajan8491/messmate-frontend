@@ -18,7 +18,9 @@ function AccountantLayout() {
 
 
   if (loadingProfile) {
-    return <Loader text="Loading Accountant Profile..." loaderNumber={1} />;
+    return <div className="h-screen flex items-center justify-center">
+      <Loader text = {"Loading interface..."} />
+    </div>;
   }
 
   if (!accountantProfile) {

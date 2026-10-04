@@ -57,7 +57,6 @@ const AdminContextProvider = ({ children }) => {
     // 4. Update Hostel Details
     const updateHostelDetails = async (id, updatedData) => {
         try {
-            console.log("Updating hostel details for ID:", id, "with data:", updatedData);
             await updateHostelDetailsAPI(id, updatedData);
 
             setHostels((prev) =>

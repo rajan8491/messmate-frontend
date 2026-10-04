@@ -10,8 +10,6 @@ export default function ProfilePopup({ user, onClose }) {
   useModalA11y(onClose);
   const { auth, logout, isLoggingOut } = useContext(AuthContext);
 
-  console.log("ProfilePopup rendered with user:", user);
-
   // Functionality when component mounts and unmounts
   useEffect(() => {
     // Close on ESC key press

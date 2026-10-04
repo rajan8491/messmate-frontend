@@ -55,8 +55,6 @@ const AuthContextProvider = ({ children }) => {
         try {
             // Backend API call
             const {user, accessToken} = await loginAPI({ username, password });
-            console.log({user, accessToken}); // Debugging line
-
             // Save access token securely in our axios client closure memory space
             setMemoryToken(accessToken);
 

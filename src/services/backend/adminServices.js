@@ -41,7 +41,6 @@ export const sendRemoveAccountsOtpAPI = async (otpSendData) => {
 
 export const removeAccountsAPI = async (hostelId, removeStudentVerifyData) => {
     // Axios DELETE requests require the body payload to be wrapped in a 'data' property
-    console.log(removeStudentVerifyData);
     const response = await protectedApi.delete(`/admin/hostels/${hostelId}/students/remove`, {
         data: removeStudentVerifyData
     });

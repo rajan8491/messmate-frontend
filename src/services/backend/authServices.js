@@ -12,7 +12,6 @@ export const loginAPI = async (credentials) => {
 };
 
 export const signupAPI = async (userData) => {
-    console.log("Signup API called with data:", userData); // Debugging line
     const response = await publicApi.post('/auth/signup', userData);
     return response.data;
 };
