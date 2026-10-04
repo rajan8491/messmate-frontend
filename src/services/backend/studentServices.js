@@ -12,7 +12,6 @@ export const changeHostelAPI = async (newHostelId, idempotencyKey) => {
  
 export const fetchTodayMenuAPI = async () => {
     const response = await protectedApi.get('/student/menu/today');
-    console.log("fetchTodayMenuAPI response:", response.data); // Debugging line
     return response.data;
 };
 
@@ -42,6 +41,6 @@ export const fetchAnalyseExtraAPI = async (from, to, groupBy) => {
 };
 
 export const addRatingAPI = async (data, idempotencyKey) => {
-    const response = await protectedApi.post('/student/rate', data, {headers: {'Idempotency-Key': idempotencyKey}});
+    const response = await protectedApi.post('/student/ratings', data, {headers: {'Idempotency-Key': idempotencyKey}});
     return response.data;
 }

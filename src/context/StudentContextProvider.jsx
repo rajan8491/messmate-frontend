@@ -228,10 +228,18 @@ const StudentContextProvider = ({ children }) => {
 
     // --- 7. ADD RATING ---
     // (should we add hostelId in data also? so that data not update in wrong hostel)
-    const addRating = async ({ itemId, meal, rating, tags, suggestion }) => {
+    const addRating = async ({ itemId, itemType, meal, rating, tags, suggestion }) => {
         const idempotencyKey = newIdempotencyKey();
         try {
-            await addRatingAPI({itemId,meal,rating,tags,suggestion}, idempotencyKey);
+            const addRatingData = {
+                itemId,
+                itemType: itemType.toUpperCase(), // Ensure itemType is in uppercase
+                meal: meal.toUpperCase(), // Ensure meal is in uppercase
+                rating,
+                tags,
+                suggestion,
+            };
+            await addRatingAPI(addRatingData, idempotencyKey);
             return true;
         } catch (error) {
             throw getApiError(error);

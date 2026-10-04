@@ -24,6 +24,7 @@ export const addExtraPurchaseSchema = z.object({
 const SUGGESTION_REGEX = /^[a-zA-Z0-9\s.,!?()'\-:;]*$/;
 export const addRatingSchema = z.object({
     itemId: itemIdField("itemId"),
+    itemType: z.enum(["diet", "extra"], { errorMap: () => ({ message: "itemType must be either 'diet' or 'extra'" }) }),
     meal: mealField,
     rating: z.coerce
         .number({ error: 'Rating is required' })

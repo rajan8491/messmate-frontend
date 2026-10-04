@@ -43,8 +43,6 @@ export default function Home() {
 
   const isMenuAvailable = hasMenuData(menu);
 
-  console.log("menu:", menu); // Debugging line
-
   const MEAL_META = {
     breakfast: { title: "Breakfast", icon: "fa-mug-hot" },
     lunch: { title: "Lunch", icon: "fa-bowl-rice" },

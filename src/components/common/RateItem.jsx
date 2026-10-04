@@ -46,6 +46,7 @@ function RateItem({ itemId, itemName, itemType, meal, onClose }) {
 
     const { success, errors: validationErrors, data } = validateWithZod(addRatingSchema, {
       itemId,
+      itemType,
       meal,
       rating,
       tags,
@@ -53,6 +54,7 @@ function RateItem({ itemId, itemName, itemType, meal, onClose }) {
     });
 
     if (!success) {
+      toast.error(validationErrors[0].message);
       setErrors(validationErrors);
       setLoadingRate(false);
       return;

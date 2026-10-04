@@ -80,7 +80,7 @@ function MealCard({ title, icon, data, delay }) {
             {data.diet.map((item, i) => (
               <div
                 key={i}
-                onClick={() => handleItemClick(item._id, item.name, "diet")}
+                onClick={() => handleItemClick(item.id, item.name, "diet")}
                 className={`w-full px-3 py-2.5 rounded-xl border transition-all duration-200 
                   ${isStudent 
                     ? "bg-orange-50/60 border-orange-100/50 cursor-pointer hover:bg-orange-50 hover:border-orange-200 hover:shadow-sm" 
@@ -112,7 +112,7 @@ function MealCard({ title, icon, data, delay }) {
             {data.extras.map((ex, i) => (
               <div
                 key={i}
-                onClick={() => handleItemClick(ex._id, ex.name, "extra")}
+                onClick={() => handleItemClick(ex.id, ex.name, "extra")}
                 className={`w-full px-3 py-2.5 rounded-xl border flex items-center justify-between transition-all duration-200 
                   ${isStudent 
                     ? "bg-purple-50/60 border-purple-100/50 cursor-pointer hover:bg-purple-50 hover:border-purple-200 hover:shadow-sm" 
