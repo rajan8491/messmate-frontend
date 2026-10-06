@@ -19,7 +19,7 @@ function AccountantLayout() {
 
   if (loadingProfile) {
     return <div className="h-screen flex items-center justify-center">
-      <Loader text = {"Loading interface..."} />
+      <Loader text = {"Loading Please Wait..."} />
     </div>;
   }
 

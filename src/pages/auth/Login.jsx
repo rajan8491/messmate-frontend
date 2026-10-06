@@ -1,259 +1,295 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
 import toast from "react-hot-toast";
+import { z } from "zod";
 import AuthContext from "../../context/AuthContext";
 import { assets } from "../../assets/assets";
-import { toastWarn } from "../../utils/toast";
-
 import { validateWithZod } from "../../utils/validateWithZod";
-import { loginSchema, loginOtpSchema } from "../../schemas/auth.schema";
+import { loginPasswordSchema, loginOtpSchema, requestOtpSchema } from "../../schemas/auth.schema";
+
 
 export default function Login() {
-  const { login, loginWithOTP, sendLoginOTP, loading, auth } = useContext(AuthContext);
+  const { login, loginWithOTP, sendLoginOTP, loginWithGoogle, loading, auth } =
+    useContext(AuthContext);
   const navigate = useNavigate();
 
-  // --- States ---
-  const [loginMethod, setLoginMethod] = useState("password");
+  // Mode: 'password' | 'otp'
+  const [mode, setMode] = useState("password");
   const [showPassword, setShowPassword] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [timer, setTimer] = useState(0);
-  const [loadingOTP, setLoadingOTP] = useState(false);
 
   const [formData, setFormData] = useState({
     identifier: "",
     password: "",
-    otp: ""
+    otp: "",
   });
 
   const [errors, setErrors] = useState({});
 
-  // --- redirect to home,dashboard if user is already loged in ---
+  // Redirect if already logged in and verified
   useEffect(() => {
     if (auth?.isLoggedIn && auth?.isVerified) {
       navigate(`/${auth.role}/home`, { replace: true });
     }
-  }, [auth]);
+  }, [auth, navigate]);
 
+  // Resend Countdown Timer
   useEffect(() => {
-    let interval;
-    if (timer > 0) interval = setInterval(() => setTimer((p) => p - 1), 1000);
+    if (timer <= 0) return;
+    const interval = setInterval(() => setTimer((t) => t - 1), 1000);
     return () => clearInterval(interval);
   }, [timer]);
 
-  // --- Handlers ---
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-    if (errors[name]) setErrors({ ...errors, [name]: "" });
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
-  const toggleMethod = (method) => {
-    setLoginMethod(method);
+  // Switch between Password and OTP Login Modes
+  const handleToggleMode = () => {
+    setMode((prev) => (prev === "password" ? "otp" : "password"));
+    setOtpSent(false);
     setErrors({});
-    if (method === "password") {
-        setOtpSent(false);
-        setTimer(0);
-    }
   };
 
-  const handleSendOTP = async () => {
-    if (!formData.identifier.trim()) {
-        setErrors({ identifier: "Enter Email or ID to receive OTP" });
-        return;
-    }
-    setLoadingOTP(true);
+  // Google Sign-In with Unregistered Interceptor
+  const handleGoogleSuccess = async (credentialResponse) => {
     try {
-        await sendLoginOTP(formData.identifier);
-        setOtpSent(true);
-        setTimer(30);
-        toast.success("OTP sent successfully");
+      const res = await loginWithGoogle(credentialResponse.credential);
+      toast.success("Welcome back!");
+      navigate(`/${res.role}/home`, { replace: true });
     } catch (err) {
-        toast.error(err.message);
-    }
-    finally {
-        setLoadingOTP(false);
+      if (err.code === "USER_NOT_FOUND" || err.response?.status === 404) {
+        toast.error("Account not found. Please sign up first.");
+        setTimeout(() => navigate("/signup"), 1200);
+        return;
+      }
+      toast.error(err.message || "Google login failed");
     }
   };
 
+  // Request OTP for Passwordless Flow
+  const handleSendOtp = async () => {
+    const { success, errors: validationErrors, data } = validateWithZod(requestOtpSchema, {
+      identifier: formData.identifier,
+    });
+
+    if (!success) {
+      setErrors((prev) => ({ ...prev, ...validationErrors }));
+      return;
+    }
+
+    try {
+      await sendLoginOTP(data.identifier);
+      setOtpSent(true);
+      setTimer(30);
+      toast.success("OTP sent to your email");
+    } catch (err) {
+      if (err.code === "USER_NOT_FOUND" || err.response?.status === 404) {
+        toast.error("Account does not exist. Please sign up first.");
+        setTimeout(() => navigate("/signup"), 1400);
+        return;
+      }
+      toast.error(err.message || "Failed to send OTP");
+    }
+  };
+
+  // Submit Password or OTP Login
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const schema = loginMethod === "password" ? loginSchema : loginOtpSchema;
-    const { success, errors, data } = validateWithZod(schema, formData);
+    const activeSchema = mode === "password" ? loginPasswordSchema : loginOtpSchema;
+    const { success, errors: validationErrors, data } = validateWithZod(activeSchema, formData);
 
     if (!success) {
-      setErrors(errors);
+      setErrors(validationErrors);
       return;
     }
 
     try {
       let res;
-      if (loginMethod === "password") {
-        res = await login({ 
-            username: data.identifier, 
-            password: data.password 
+      if (mode === "password") {
+        res = await login({
+          username: data.identifier,
+          password: data.password,
         });
       } else {
         res = await loginWithOTP({
-            identifier: data.identifier,
-            otp: data.otp
+          identifier: data.identifier,
+          otp: data.otp,
         });
       }
-      navigate(`/${res.role}/home`, { replace: true });
       toast.success("Login successful");
-
+      navigate(`/${res.role}/home`, { replace: true });
     } catch (err) {
-      if (err.code === 'EMAIL_UNVERIFIED') {
-        toastWarn(err.message);
-        navigate("/verify-email", { state: { email: err.data?.email || formData.identifier } });
+      if (err.code === "USER_NOT_FOUND" || err.response?.status === 404) {
+        toast.error("Account does not exist. Please create an account.");
+        setTimeout(() => navigate("/signup"), 1400);
         return;
       }
-
-      toast.error(err.message);
+      if (err.code === "EMAIL_UNVERIFIED") {
+        navigate("/verify-email", { state: { email: formData.identifier } });
+        return;
+      }
+      toast.error(err.message || "Authentication failed");
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-green-50 via-white to-green-100 px-4 font-sans text-gray-800">
-      <div className="w-full max-w-100 bg-white p-8 rounded-3xl shadow-xl border border-green-50/50">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50/70 px-4 py-8">
+      <div className="w-full max-w-sm bg-white rounded-3xl p-5 sm:p-8 border border-slate-100 shadow-xl shadow-slate-200/50">
         
-        {/* --- Header & Logo --- */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="h-20 w-20 mb-4 transition-shadow hover:shadow-md rounded-full" onClick={() => navigate('/')}>
-             <img src={assets.logo3} alt="Mess Mate Logo" className="h-full w-full object-cover rounded-full" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 tracking-tight">Welcome Back</h2>
-          <p className="text-gray-500 text-sm mt-1 font-medium">
-             {loginMethod === "password" ? "Sign in to continue" : "Password-less Login"}
-          </p>
+        {/* Header */}
+        <div className="flex flex-col items-center text-center mb-6">
+          <img
+            src={assets.logo}
+            alt="MessMate"
+            className="h-10 w-auto mb-3 cursor-pointer"
+            onClick={() => navigate("/")}
+          />
+          <h2 className="text-2xl font-bold tracking-tight text-slate-800">Welcome Back</h2>
+          <p className="text-xs text-slate-500 mt-1">Sign in to your MessMate account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Input Form */}
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           
-          {/* 1. Identifier Input */}
-          <div className="relative group">
-             <i className="fas fa-user absolute left-4 top-3.5 text-gray-400 group-focus-within:text-green-600 transition-colors z-10"></i>
-             <input
-                type="text"
-                name="identifier"
-                value={formData.identifier}
-                onChange={handleChange}
-                placeholder={"Enter Email or Login ID"}
-                className={`w-full pl-11 pr-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm
-                    ${errors.identifier ? "border-red-500 bg-red-50" : "border-gray-200"}`}
-             />
+          {/* Email / ID Field */}
+          <div>
+            <label className="text-xs font-semibold text-slate-600 block mb-1">Email</label>
+            <input
+              type="text"
+              name="identifier"
+              placeholder="rollno@nitkkr.ac.in"
+              value={formData.identifier}
+              onChange={handleChange}
+              className={`w-full px-4 py-2.5 rounded-xl border text-sm transition outline-none ${
+                errors.identifier
+                  ? "border-red-400 bg-red-50/40 focus:ring-2 focus:ring-red-400/20"
+                  : "border-slate-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-600"
+              }`}
+            />
+            {errors.identifier && (
+              <p className="text-red-500 text-xs mt-1 ml-1">{errors.identifier}</p>
+            )}
           </div>
-          {errors.identifier && <p className="text-red-500 text-xs ml-1 font-medium">{errors.identifier}</p>}
 
-          {/* --- CONDITIONAL UI --- */}
-          
-          {loginMethod === "password" ? (
-            /* PASSWORD FLOW */
-            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-               <div className="relative group">
-                  <i className="fas fa-lock absolute left-4 top-3.5 text-gray-400 group-focus-within:text-green-600 transition-colors z-10"></i>
-                  <input
-                     type={showPassword ? "text" : "password"}
-                     name="password"
-                     value={formData.password}
-                     onChange={handleChange}
-                     placeholder="Password"
-                     className={`w-full pl-11 pr-11 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm
-                        ${errors.password ? "border-red-500 bg-red-50" : "border-gray-200"}`}
-                  />
-                  <button
-                     type="button"
-                     onClick={() => setShowPassword(!showPassword)}
-                     className="absolute right-3 top-2.5 p-1 text-gray-400 hover:text-green-600 transition-colors focus:outline-none"
-                  >
-                     <i className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"}`}></i>
-                  </button>
-               </div>
-               {errors.password && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.password}</p>}
-               
-               {/* Separated Links */}
-               <div className="flex justify-between items-center mt-3 px-1">
-                 <button 
-                    type="button"
-                    onClick={() => toggleMethod("otp")}
-                    className="text-xs font-semibold text-gray-500 hover:text-green-700 transition-colors"
-                 >
-                    Login via OTP
-                 </button>
-                 <Link 
-                    to="/forgot-password"
-                    className="text-xs font-semibold text-green-600 hover:text-green-800 hover:underline transition-colors"
-                 >
-                    Forgot Password?
-                 </Link>
-               </div>
+          {/* PASSWORD MODE */}
+          {mode === "password" ? (
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2.5 pr-10 rounded-xl border text-sm transition outline-none ${
+                    errors.password
+                      ? "border-red-400 bg-red-50/40 focus:ring-2 focus:ring-red-400/20"
+                      : "border-slate-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-600"
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600"
+                >
+                  <i className={`fa-solid ${showPassword ? "fa-eye-slash" : "fa-eye"} text-xs`} />
+                </button>
+              </div>
+              {errors.password && (
+                <p className="text-red-500 text-xs mt-1 ml-1">{errors.password}</p>
+              )}
             </div>
-
           ) : (
-            /* OTP FLOW */
-            <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
-               <div className="flex gap-2">
-                  <div className="relative w-full">
-                     <input 
-                        type="text" 
-                        name="otp" 
-                        value={formData.otp}
-                        onChange={handleChange}
-                        placeholder="Enter 6-digit OTP"
-                        maxLength={6}
-                        disabled={!otpSent}
-                        className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm text-center tracking-[0.2em] font-bold text-gray-700
-                           ${errors.otp ? "border-red-500 bg-red-50" : "border-gray-200"}
-                           ${!otpSent ? "opacity-60 cursor-not-allowed" : ""}`} 
-                     />
-                  </div>
-                  <button 
-                     type="button"
-                     onClick={handleSendOTP}
-                     disabled={timer > 0 || loading}
-                     className="whitespace-nowrap px-4 py-2 bg-gray-800 text-white text-xs font-semibold rounded-xl hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors w-28 shadow-lg shadow-gray-200"
-                  >
-                     {timer > 0 ? `Wait ${timer}s` : (otpSent ? "Resend" : "Get OTP")}
-                  </button>
-               </div>
-               {errors.otp && <p className="text-red-500 text-xs ml-1 font-medium">{errors.otp}</p>}
-
-               <div className="flex justify-end">
-                 <button 
-                    type="button"
-                    onClick={() => toggleMethod("password")}
-                    className="text-xs font-medium text-gray-500 hover:text-gray-800 transition-colors flex items-center gap-1"
-                 >
-                    <i className="fas fa-arrow-left text-[10px]"></i> Back to Password
-                 </button>
-               </div>
+            /* OTP MODE */
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1">6-Digit OTP</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  name="otp"
+                  maxLength={6}
+                  disabled={!otpSent}
+                  placeholder="------"
+                  value={formData.otp}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm text-center tracking-widest font-bold disabled:opacity-50 transition outline-none ${
+                    errors.otp
+                      ? "border-red-400 bg-red-50/40 focus:ring-2 focus:ring-red-400/20"
+                      : "border-slate-200 focus:ring-2 focus:ring-green-500/20 focus:border-green-600"
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={timer > 0 || loading}
+                  className="px-4 py-2.5 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed whitespace-nowrap min-w-24 transition"
+                >
+                  {timer > 0 ? `${timer}s` : otpSent ? "Resend" : "Send OTP"}
+                </button>
+              </div>
+              {errors.otp && (
+                <p className="text-red-500 text-xs mt-1 ml-1">{errors.otp}</p>
+              )}
             </div>
           )}
 
-          {/* Submit Button */}
+          {/* Toggle between Password & OTP login */}
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={handleToggleMode}
+              className="text-xs text-slate-500 hover:text-slate-800 font-medium transition-colors"
+            >
+              {mode === "password" ? "Sign in using OTP instead" : "Use Password instead"}
+            </button>
+          </div>
+
+          {/* Main Action Button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-green-700 active:scale-[0.98] transition-all shadow-lg shadow-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+            className="w-full py-3 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 transition active:scale-[0.99] disabled:opacity-50 shadow-md shadow-green-600/20"
           >
-            {loading ? (loadingOTP ? "Sending OTP..." : "Verifying...") : (
-                <>
-                   <i className={`fas ${loginMethod === 'otp' ? 'fa-key' : 'fa-sign-in-alt'}`}></i> 
-                   {loginMethod === 'otp' ? 'Verify & Login' : 'Secure Login'}
-                </>
-            )}
+            {loading ? "Authenticating..." : mode === "password" ? "Sign In" : "Verify & Sign In"}
           </button>
         </form>
 
-        <div className="mt-8 text-center border-t border-gray-100 pt-6">
-          <p className="text-sm text-gray-500">
-            Don’t have an account? 
-            <Link to="/signup" className="text-green-600 font-bold hover:underline ml-1">
-              Create Account
-            </Link>
-          </p>
+        {/* Divider */}
+        <div className="relative flex items-center justify-center my-6">
+          <div className="w-full border-t border-slate-200"></div>
+          <span className="bg-white px-3 text-[11px] uppercase tracking-wider text-slate-400 font-semibold absolute">
+            or
+          </span>
         </div>
+
+        {/* Google SSO Button (Mobile Responsive & Centered) */}
+        <div className="w-full flex justify-center [&>div]:!w-full [&>div]:max-w-[340px] [&_iframe]:!mx-auto">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => toast.error("Google sign-in failed")}
+            shape="pill"
+            theme="outline"
+            size="large"
+            text="signin_with"
+            width="100%"
+          />
+        </div>
+
+        {/* Signup Redirect Link */}
+        <p className="mt-7 text-center text-xs text-slate-500">
+          Don't have an account?{" "}
+          <Link to="/signup" className="text-green-600 font-semibold hover:underline">
+            Sign up now
+          </Link>
+        </p>
 
       </div>
     </div>

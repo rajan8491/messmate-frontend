@@ -1,5 +1,5 @@
 import AccountantContext from "./AccountantContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // Import real backend services
 import {
@@ -260,6 +260,15 @@ const AccountantContextProvider = ({ children }) => {
       setLoadingAnalysis(false);
     }
   };
+
+      useEffect(() => {
+          const handleClear = () => {
+              setAccountantProfile(null); // Instantly clears out User A's cached state
+          };
+  
+          window.addEventListener("auth:clear-profile", handleClear);
+          return () => window.removeEventListener("auth:clear-profile", handleClear);
+      }, []);
 
   const value = {
     accountantProfile,

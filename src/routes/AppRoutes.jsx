@@ -11,7 +11,7 @@ const Landing = lazy(() => import("../pages/Landing"));
 const Login = lazy(() => import("../pages/auth/Login"));
 const Signup = lazy(() => import("../pages/auth/SignUp"));
 const VerifyEmail = lazy(() => import("../pages/auth/VerifyEmail.jsx"));
-const ForgotPassword = lazy(() => import("../pages/auth/ForgotPassword.jsx"));
+const ForgotPassword = lazy(() => import("../pages/auth/ForgotPasswordModal.jsx"));
 
 const StudentLayout = lazy(() => import("../pages/student/StudentLayout"));
 const StudentHome = lazy(() => import("../pages/student/Home"));

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { nitkkrEmailField, rollNoField, identifierField, passwordField, strongPasswordField, otpField, hostelIdField, studentNameField } from "./common";
 
 // login schemas
-export const loginSchema = z.object({
+export const loginPasswordSchema = z.object({
   identifier: identifierField,
   password: passwordField,
 });
@@ -12,20 +12,21 @@ export const loginOtpSchema = z.object({
   otp: otpField,
 });
 
-//signup schema
-export const signupSchema = z
-  .object({
-    name: studentNameField,
-    identifier: nitkkrEmailField,
-    rollNo: rollNoField,
-    hostel: hostelIdField,
-    password: strongPasswordField,
-    c_password: z.string(),
-  })
-  .refine((d) => d.password === d.c_password, {
-    message: "Passwords do not match",
-    path: ["c_password"],
-  });
+export const requestOtpSchema = z.object({
+  identifier: identifierField,
+});
+
+export const standardSignupSchema = z.object({
+  name: studentNameField,
+  email: nitkkrEmailField,
+  hostelId: hostelIdField,
+  password: strongPasswordField,
+});
+
+export const googleProfileSetupSchema = z.object({
+  name: studentNameField,
+  hostelId: hostelIdField,
+});
 
 
 //verify email schema

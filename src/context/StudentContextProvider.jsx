@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import StudentContext from "./StudentContext"; 
 import AuthContext from "./AuthContext";
 
@@ -245,6 +245,23 @@ const StudentContextProvider = ({ children }) => {
             throw getApiError(error);
         }
     };
+
+    const resetStudentState = () => {
+        setTodayMenu(null);
+        setFetchDate(null);
+        setWeeklyMenu(null);
+        setStudentProfile(null);
+        setExtrasByDateCache({});
+        setAnalyseExtraDataCache({});
+        setExtras([]);
+        setAnalyseExtraData([]);
+    };
+
+    // Listen to the global reset event
+    useEffect(() => {
+        window.addEventListener("auth:reset-all-data", resetStudentState);
+        return () => window.removeEventListener("auth:reset-all-data", resetStudentState);
+    }, []);
 
     const value = {
         studentProfile, loadingProfile, fetchStudentProfile,

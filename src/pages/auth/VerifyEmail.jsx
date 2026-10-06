@@ -1,10 +1,7 @@
-/* eslint-disable react-hooks/set-state-in-effect */
-/* eslint-disable react-hooks/exhaustive-deps */
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import AuthContext from "../../context/AuthContext";
-import { assets } from "../../assets/assets";
 import { verifyEmailSchema } from "../../schemas/auth.schema";
 import { validateWithZod } from "../../utils/validateWithZod";
 
@@ -13,177 +10,252 @@ export default function VerifyEmail() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Redirect if already logged in and verified
   useEffect(() => {
     if (auth?.isLoggedIn && auth?.isVerified) {
       navigate(`/${auth.role}/home`, { replace: true });
     }
-  }, []);
+  }, [auth, navigate]);
 
-  const [formData, setFormData] = useState({
-    email: "",
-    otp: ""
-  });
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [errors, setErrors] = useState({});
-  const [resendTimer, setResendTimer] = useState(0);
+  const [resendTimer, setResendTimer] = useState(30);
   const [loadingResend, setLoadingResend] = useState(false);
-  
-  // Load email from navigation state
-  useEffect(() => {
-    if (location.state?.email) {
-      setFormData({...formData, email: location.state.email});
-      setResendTimer(30); // Start timer automatically on load
-    } else {
-      navigate("/login");
-    }
-  }, [location, navigate]);
 
-  // Resend OTP timer
+  const inputRefs = useRef([]);
+
+  useEffect(() => {
+    const stateEmail = location.state?.email;
+    if (stateEmail) {
+      setEmail(stateEmail);
+      inputRefs.current[0]?.focus();
+    } else {
+      toast.error("Session expired or invalid link. Please log in.");
+      navigate("/login", { replace: true });
+    }
+  }, [location.state, navigate]);
+
   useEffect(() => {
     if (resendTimer <= 0) return;
     const timer = setInterval(() => {
-      setResendTimer((t) => t - 1);
+      setResendTimer((prev) => prev - 1);
     }, 1000);
     return () => clearInterval(timer);
   }, [resendTimer]);
 
-  //onchange handler
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-    if (errors[name]) setErrors({ ...errors, [name]: "" });
+  const handleDigitChange = (index, value) => {
+    const cleanValue = value.replace(/[^0-9]/g, "");
+
+    setOtp((prev) => {
+      const updated = [...prev];
+      updated[index] = cleanValue.slice(-1);
+      return updated;
+    });
+
+    if (errors.otp) setErrors((prev) => ({ ...prev, otp: "" }));
+
+    if (cleanValue && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
   };
 
-  //form submit handler
-  const handleVerify = async (e) => {
-    e.preventDefault();
+  const handleKeyDown = (index, e) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
 
-    const {success, errors, data} = validateWithZod(verifyEmailSchema, formData);
-    if(!success) {
-      setErrors(errors);
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData("text").replace(/[^0-9]/g, "").slice(0, 6);
+    if (!pasteData) return;
+
+    const newOtp = pasteData.split("");
+    setOtp((prev) => {
+      const updated = [...prev];
+      newOtp.forEach((char, i) => {
+        if (i < 6) updated[i] = char;
+      });
+      return updated;
+    });
+
+    const nextIndex = Math.min(newOtp.length, 5);
+    inputRefs.current[nextIndex]?.focus();
+
+    if (errors.otp) setErrors((prev) => ({ ...prev, otp: "" }));
+  };
+
+  useEffect(() => {
+    const fullOtp = otp.join("");
+    if (fullOtp.length === 6 && !loading) {
+      submitVerification(fullOtp);
+    }
+  }, [otp]);
+
+  const submitVerification = async (enteredOtp) => {
+    const payload = { email, otp: enteredOtp };
+
+    const { success, errors: validationErrors, data } = validateWithZod(verifyEmailSchema, payload);
+    if (!success) {
+      setErrors(validationErrors);
       return;
     }
 
     try {
-      await verifyEmail({
+      const res = await verifyEmail({
         identifier: data.email,
         otp: data.otp,
-        channel: "EMAIL"
+        channel: "EMAIL",
       });
       toast.success("Email verified successfully");
-      navigate("/login");
+      navigate(`/${res?.role || "student"}/home`, { replace: true });
     } catch (err) {
       toast.error(err.message || "OTP Verification failed");
+      setOtp(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
     }
+  };
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    submitVerification(otp.join(""));
   };
 
   const handleResendOtp = async () => {
+    if (resendTimer > 0 || loadingResend || !email) return;
+
     setLoadingResend(true);
-
-    const {success, errors, data} = validateWithZod(verifyEmailSchema, {email: formData.email, otp: "123456"});
-    
-    if(!success) {
-      setErrors(errors);
-      return;
-    }
-
     try {
-      await resendOtp(data.email);
-      toast.success("OTP resent successfully");
+      await resendOtp(email);
+      toast.success("New verification code sent");
       setResendTimer(30);
-      setErrors({}); // Clear previous errors
+      setErrors({});
+      setOtp(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
     } catch (error) {
       toast.error(error.message || "Failed to resend OTP");
-    }
-    finally {
+    } finally {
       setLoadingResend(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-green-50 via-white to-green-100 px-4 font-sans text-gray-800">
-      <div className="w-full max-w-100 bg-white p-8 rounded-3xl shadow-xl border border-green-50/50">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50/70 px-3 sm:px-4 font-sans text-slate-800 py-10">
+      {/* Changed p-8 to p-5 sm:p-8 to free up horizontal space on phones */}
+      <div className="w-full max-w-sm sm:max-w-md bg-white p-5 sm:p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100">
         
-        {/* --- Header & Logo --- */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="h-20 w-20 mb-4 transition-shadow hover:shadow-md rounded-full">
-             {/* Ensure you have assets.logo3 or similar */}
-             <img src={assets.logo3} alt="App Logo" className="h-full w-full object-cover rounded-full" />
+        {/* Header */}
+        <div className="flex flex-col items-center text-center mb-6 sm:mb-8">
+          <div className="h-14 w-14 sm:h-16 sm:w-16 mb-3 sm:mb-4 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center text-xl sm:text-2xl shadow-sm border border-green-100">
+            <i className="fa-solid fa-envelope-circle-check"></i>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 tracking-tight">Verify Your Email</h2>
-          <p className="text-gray-500 text-sm mt-1 font-medium text-center">
-             We've sent a 6-digit code to your email. Enter it below to continue.
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+            Verify Your Email
+          </h2>
+          
+          <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full text-xs font-semibold text-slate-600 border border-slate-200/60 max-w-full select-none">
+            <i className="fa-solid fa-envelope text-[11px] text-slate-400 shrink-0"></i>
+            <span className="truncate max-w-[210px] sm:max-w-[260px]">{email || "Your email"}</span>
+          </div>
+          
+          <p className="text-slate-500 text-xs mt-3 leading-relaxed">
+            Enter the 6-digit verification code sent to your inbox.
           </p>
         </div>
 
-        <form onSubmit={handleVerify} className="space-y-5">
+        <form onSubmit={handleFormSubmit} className="space-y-6">
           
-          {/* 1. Email Field (Read-Only) */}
-          <div className="relative group opacity-80">
-             <i className="fas fa-envelope absolute left-4 top-3.5 text-gray-400 z-10"></i>
-             <input
-                type="email"
-                name="email"
-                value={formData.email}
-                readOnly
-                className="w-full pl-11 pr-4 py-3 bg-gray-100 border border-gray-200 rounded-xl focus:outline-none text-sm text-gray-600 cursor-not-allowed font-medium"
-             />
-             {errors.email && <p className="text-red-500 text-xs ml-1 font-medium">{errors.email}</p>}
+          {/* Responsive Fluid OTP Input Container */}
+          <div>
+            <div 
+              className="flex justify-between items-center gap-1.5 sm:gap-2.5 w-full" 
+              onPaste={handlePaste}
+            >
+              {otp.map((digit, index) => (
+                <input
+                  key={index}
+                  ref={(el) => (inputRefs.current[index] = el)}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleDigitChange(index, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  disabled={loading}
+                  /* Uses flex-1 min-w-0 max-w-[48px] with aspect-square so it shrinks naturally on small screens */
+                  className={`flex-1 min-w-0 max-w-[48px] aspect-square sm:aspect-auto sm:h-14 p-0 text-center text-lg sm:text-xl font-bold rounded-xl border bg-slate-50/50 text-slate-800 transition-all outline-none ${
+                    errors.otp
+                      ? "border-red-400 bg-red-50/30 text-red-600 focus:ring-2 focus:ring-red-400/20"
+                      : digit
+                      ? "border-green-600 bg-white shadow-xs focus:ring-2 focus:ring-green-500/20"
+                      : "border-slate-200 focus:border-green-600 focus:bg-white focus:ring-2 focus:ring-green-500/20"
+                  }`}
+                />
+              ))}
+            </div>
+
+            {errors.otp && (
+              <p className="text-red-500 text-xs font-medium text-center mt-2">
+                {errors.otp}
+              </p>
+            )}
           </div>
 
-          {/* 2. OTP Input & Resend Button Container */}
-          <div className="space-y-3">
-             <div className="flex gap-2">
-                 {/* OTP Input */}
-                <div className="relative w-full">
-                    <input
-                      type="text"
-                      name="otp"
-                      value={formData.otp}
-                      onChange={handleChange}
-                      placeholder="Enter OTP"
-                      maxLength={6}
-                      className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm text-center tracking-[0.2em] font-bold text-gray-700
-                          ${errors.otp ? "border-red-500 bg-red-50" : "border-gray-200"}`}
-                    />
-                </div>
-                
-                {/* Resend Button aligned next to input */}
-                 <button 
-                    type="button"
-                    onClick={handleResendOtp}
-                    disabled={resendTimer > 0 || loading}
-                    // Updated classes to match Login page button style (fixed width, layout)
-                    className="whitespace-nowrap px-4 py-3 bg-gray-800 text-white text-xs font-semibold rounded-xl hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors w-28 shadow-lg shadow-gray-200"
-                 >
-                    {resendTimer > 0 ? `Wait ${resendTimer}s` : "Resend"}
-                 </button>
-             </div>
-             {/* Error message below the flex container */}
-             {errors.otp && <p className="text-red-500 text-xs ml-1 font-medium">{errors.otp}</p>}
+          {/* Resend Link with Timer */}
+          <div className="flex items-center justify-between text-xs px-1">
+            <span className="text-slate-500">Didn't receive the code?</span>
+            {resendTimer > 0 ? (
+              <span className="text-slate-400 font-medium tabular-nums flex items-center gap-1.5">
+                <i className="fa-regular fa-clock text-[11px]"></i>
+                Resend in {resendTimer}s
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={loadingResend || loading}
+                className="text-green-600 font-bold hover:text-green-700 hover:underline disabled:opacity-50 transition-colors"
+              >
+                {loadingResend ? "Sending..." : "Resend Code"}
+              </button>
+            )}
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-green-700 active:scale-[0.98] transition-all shadow-lg shadow-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+            disabled={loading || otp.join("").length < 6}
+            className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-green-700 active:scale-[0.99] transition-all shadow-md shadow-green-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? (loadingResend ? "Sending OTP..." : "Verifying...") : (
-                <>
-                   <i className="fas fa-check-circle"></i> 
-                   Verify Email
-                </>
+            {loading ? (
+              <>
+                <i className="fa-solid fa-circle-notch fa-spin text-sm"></i>
+                Verifying Code...
+              </>
+            ) : (
+              <>
+                <i className="fa-solid fa-shield-halved text-sm"></i>
+                Verify & Continue
+              </>
             )}
           </button>
         </form>
 
-        {/* Footer Link back to Login */}
-        <div className="mt-8 text-center border-t border-gray-100 pt-6">
-          <p className="text-sm text-gray-500">
-            Wrong email or need help? 
-            <button onClick={() => navigate('/login')} className="text-green-600 font-bold hover:underline ml-1">
-              Back to Login
+        {/* Footer */}
+        <div className="mt-7 text-center border-t border-slate-100 pt-5">
+          <p className="text-xs text-slate-500">
+            Back to{" "}
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              className="text-green-600 font-bold hover:underline ml-0.5"
+            >
+              Sign In
             </button>
           </p>
         </div>
