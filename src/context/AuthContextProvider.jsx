@@ -310,7 +310,6 @@ const AuthContextProvider = ({ children }) => {
   useEffect(() => {
     const handleSessionExpired = () => {
       purgeAllUserData();
-      toast.error("Session expired. Please log in again.");
     };
 
     window.addEventListener("auth:session-expired", handleSessionExpired);
