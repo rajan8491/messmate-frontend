@@ -5,7 +5,6 @@ import AuthContext from "../../context/AuthContext";
 import ProfilePopup from "../../components/common/ProfilePopup";
 
 export default function StudentNavbar({ studentProfile }) {
-  const { user } = useContext(AuthContext);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const navigate = useNavigate();

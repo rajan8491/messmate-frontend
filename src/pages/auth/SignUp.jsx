@@ -3,7 +3,6 @@ import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import toast from "react-hot-toast";
-import { z } from "zod";
 import AuthContext from "../../context/AuthContext";
 import { assets } from "../../assets/assets";
 import { validateWithZod } from "../../utils/validateWithZod";

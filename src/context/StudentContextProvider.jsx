@@ -1,4 +1,4 @@
-import { useContext, useState, useEffect } from "react";
+import { useCallback, useContext, useState, useEffect } from "react";
 import StudentContext from "./StudentContext"; 
 import AuthContext from "./AuthContext";
 
@@ -42,7 +42,7 @@ const StudentContextProvider = ({ children }) => {
 
     const { setUser } = useContext(AuthContext);
 
-    const fetchStudentProfile = async () => {
+    const fetchStudentProfile = useCallback(async () => {
         setLoadingProfile(true);
         try {
             const data = await fetchStudentProfileAPI();
@@ -53,7 +53,7 @@ const StudentContextProvider = ({ children }) => {
         } finally {
             setLoadingProfile(false);
         }
-    }
+    }, []);
 
     // --- 1. CHANGE HOSTEL ---
     const changeHostel = async (newHostelId) => {
@@ -249,7 +249,7 @@ const StudentContextProvider = ({ children }) => {
     const resetStudentState = () => {
         setTodayMenu(null);
         setFetchDate(null);
-        setWeeklyMenu(null);
+        setWeeklyMenu({});
         setStudentProfile(null);
         setExtrasByDateCache({});
         setAnalyseExtraDataCache({});

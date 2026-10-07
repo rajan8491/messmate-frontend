@@ -52,7 +52,7 @@ const AuthContextProvider = ({ children }) => {
     // D. Purge any browser storage keys
     localStorage.clear();
     sessionStorage.clear();
-  });
+  }, []);
 
   // --- Central Helper: Reusable single-point auth success handler ---
   const handleAuthSuccess = useCallback((data) => {
@@ -108,7 +108,8 @@ const AuthContextProvider = ({ children }) => {
       if (data.newUser) {
         return data; // { newUser: true, email: "...", name: "..." }
       }
-      return handleAuthSuccess(data);
+      const res = handleAuthSuccess(data);
+      return { isVerified: true, role: res.role };
     } catch (error) {
       throw getApiError(error);
     } finally {
@@ -121,7 +122,8 @@ const AuthContextProvider = ({ children }) => {
     setLoading(true);
     try {
       const data = await registerWithGoogleAPI({ token, name, hostelId, rollNo });
-      return handleAuthSuccess(data);
+      const res = handleAuthSuccess(data);
+      return { isVerified: true, role: res.role };
     } catch (error) {
       throw getApiError(error);
     } finally {
@@ -134,7 +136,8 @@ const AuthContextProvider = ({ children }) => {
     setLoading(true);
     try {
       const data = await loginAPI({ username, password });
-      return handleAuthSuccess(data);
+      const res = handleAuthSuccess(data);
+      return { isVerified: true, role: res.role };
     } catch (error) {
       throw getApiError(error);
     } finally {
@@ -147,7 +150,8 @@ const AuthContextProvider = ({ children }) => {
     setLoading(true);
     try {
       const data = await loginWithOtpAPI({ identifier, otp, channel: "EMAIL" });
-      return handleAuthSuccess(data);
+      const res = handleAuthSuccess(data);
+      return { isVerified: true, role: res.role };
     } catch (error) {
       throw getApiError(error);
     } finally {
@@ -160,7 +164,8 @@ const AuthContextProvider = ({ children }) => {
     setLoading(true);
     try {
       const data = await verifyEmailAPI({ identifier, otp, channel });
-      return handleAuthSuccess(data);
+      const res = handleAuthSuccess(data);
+      return { isVerified: true, role: res.role };
     } catch (error) {
       throw getApiError(error);
     } finally {
